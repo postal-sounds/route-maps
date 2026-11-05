@@ -562,6 +562,7 @@ const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/p
 const SUPABASE_URL = 'https://jwwwekafkpjdtngtjzfe.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_ypy8gKygTS_JJSin3HVdyQ_-aJWXvtc';
 const SUPABASE_TIMEOUT_MS = 8000;
+const ROUTES_SNAPSHOT_URL = 'https://postal-sounds.github.io/route-maps/data/routes.json';
 const ROUTE_STOP_COLUMNS = 'id,route_id,name,name_en,description,description_en,latitude,longitude,image_url,embed_html,videos,extra_text';
 const MAPBOX_TOKEN = 'pk.eyJ1IjoicG9zdGFsc291bmRzIiwiYSI6ImNtamM1cTR6YzBsbXUzZHB5NTRvbDV4aTIifQ.9KaoFRtAWzKkqeOpyA0SgA';
 const MAPBOX_STYLE = 'mapbox://styles/postalsounds/cmmw7mtb7000x01sa0ifddo9w';
@@ -833,7 +834,16 @@ function rowFromRouteStop(stop, route) {
   };
 }
 
-/* Pide solo las paradas de la ruta indicada; si Supabase falla o tarda demasiado, se usa el CSV. */
+async function loadRouteSnapshot() {
+  const res = await fetch(ROUTES_SNAPSHOT_URL);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  if (!data.stops.length) throw new Error('Sin filas');
+  const routesById = new Map(data.routes.map((r) => [r.id, r]));
+  return data.stops.map((stop) => rowFromRouteStop(stop, routesById.get(stop.route_id)));
+}
+
+/* Pide solo las paradas de la ruta indicada; si Supabase falla o tarda demasiado, se usa la copia estática y, en último caso, el CSV. */
 async function loadRouteRows(routeParam) {
   try {
     const routes = await fetchSupabase('/rest/v1/routes?select=id,name,description&order=id');
@@ -845,7 +855,12 @@ async function loadRouteRows(routeParam) {
     const routesById = new Map(routes.map((r) => [r.id, r]));
     return stops.map((stop) => rowFromRouteStop(stop, routesById.get(stop.route_id)));
   } catch (error) {
-    console.warn('Postal Sounds: Supabase no disponible, se usa el respaldo', error);
+    console.warn('Postal Sounds: Supabase no disponible, se usa la copia estática', error);
+  }
+  try {
+    return await loadRouteSnapshot();
+  } catch (error) {
+    console.warn('Postal Sounds: copia estática no disponible, se usa el CSV', error);
     const res = await fetch(SHEET_CSV_URL);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return parseCSV(await res.text());
