@@ -558,6 +558,11 @@
 <script>
 const SHEET_ID = 'e/2PACX-1vRsZdbkvIn-2hKY4DvmnCW4keExHTeG2lt234TA7zQvPRATfG2fMcK6-R2d5PgThsrf3faGQuQua2P-';
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/pub?output=csv';
+/* La clave publicable solo permite leer: las tablas tienen RLS. */
+const SUPABASE_URL = 'https://jwwwekafkpjdtngtjzfe.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_ypy8gKygTS_JJSin3HVdyQ_-aJWXvtc';
+const SUPABASE_TIMEOUT_MS = 8000;
+const ROUTE_STOP_COLUMNS = 'id,route_id,name,name_en,description,description_en,latitude,longitude,image_url,embed_html,videos,extra_text';
 const MAPBOX_TOKEN = 'pk.eyJ1IjoicG9zdGFsc291bmRzIiwiYSI6ImNtamM1cTR6YzBsbXUzZHB5NTRvbDV4aTIifQ.9KaoFRtAWzKkqeOpyA0SgA';
 const MAPBOX_STYLE = 'mapbox://styles/postalsounds/cmmw7mtb7000x01sa0ifddo9w';
 const ACCENT_COLOR = '#BFEF2B';
@@ -792,6 +797,59 @@ function parseCSV(text) {
     data.push(obj);
   }
   return data;
+}
+
+async function fetchSupabase(path) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SUPABASE_TIMEOUT_MS);
+  try {
+    const res = await fetch(SUPABASE_URL + path, {
+      headers: { apikey: SUPABASE_PUBLISHABLE_KEY },
+      signal: controller.signal
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* Convierte una parada a los nombres de columna que usa el mapa. */
+function rowFromRouteStop(stop, route) {
+  return {
+    ID: stop.id,
+    route: route.name,
+    'Descripcion de ruta': route.description || '',
+    latitude: stop.latitude === null ? '' : String(stop.latitude),
+    longitude: stop.longitude === null ? '' : String(stop.longitude),
+    name: stop.name || '',
+    name_en: stop.name_en || '',
+    description: stop.description || '',
+    description_en: stop.description_en || '',
+    url: stop.image_url || '',
+    embed: stop.embed_html || '',
+    videos: stop.videos || '',
+    texto_extra: stop.extra_text || ''
+  };
+}
+
+/* Pide solo las paradas de la ruta indicada; si Supabase falla o tarda demasiado, se usa el CSV. */
+async function loadRouteRows(routeParam) {
+  try {
+    const routes = await fetchSupabase('/rest/v1/routes?select=id,name,description&order=id');
+    const lookup = (routeParam || '').toLowerCase().trim();
+    const target = lookup ? routes.find((r) => r.name.toLowerCase().trim() === lookup) : routes[0];
+    const filter = target ? '&route_id=eq.' + target.id : '';
+    const stops = await fetchSupabase('/rest/v1/route_stops?select=' + ROUTE_STOP_COLUMNS + filter + '&order=route_id,position');
+    if (!stops.length) throw new Error('Sin filas');
+    const routesById = new Map(routes.map((r) => [r.id, r]));
+    return stops.map((stop) => rowFromRouteStop(stop, routesById.get(stop.route_id)));
+  } catch (error) {
+    console.warn('Postal Sounds: Supabase no disponible, se usa el respaldo', error);
+    const res = await fetch(SHEET_CSV_URL);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return parseCSV(await res.text());
+  }
 }
 
 function parseCoord(val) {
@@ -2556,16 +2614,13 @@ async function init() {
   showStatus(text('loading', lang));
   const params = new URLSearchParams(window.location.search);
   const routeParam = params.get('route');
-  let csvText;
+  let rows;
   try {
-    const res = await fetch(SHEET_CSV_URL);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    csvText = await res.text();
+    rows = await loadRouteRows(routeParam);
   } catch (err) {
     showStatus(text('loadingError', lang), text('loadingErrorDetail', lang));
     return;
   }
-  const rows = parseCSV(csvText);
   if (!rows.length) {
     showStatus(text('noData', lang), text('emptySheet', lang));
     return;
