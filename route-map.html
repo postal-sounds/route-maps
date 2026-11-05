@@ -626,6 +626,7 @@ const ROUTE_PROFILES = {
 const MAPBOX_JS_URL = 'https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js';
 const MAPBOX_CSS_URL = 'https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css';
 const SLOW_CONNECTION_NOTICE_MS = 8000;
+const MAX_MAP_PIXEL_RATIO = 2;
 const SPLASH_MIN_VISIBLE_MS = 1800;
 const SPLASH_MAX_VISIBLE_MS = 20000;
 const SPLASH_FADE_MS = 500;
@@ -2713,6 +2714,10 @@ async function init() {
 
   setTimeout(hideSplash, SPLASH_MAX_VISIBLE_MS);
   const slowNotice = setTimeout(() => { showStatus(text('slowConnection', lang)); }, SLOW_CONNECTION_NOTICE_MS);
+  /* Mapbox no permite fijar la densidad y lee este valor: limitarla a 2 aligera mucho el dibujo en iPhone. */
+  if (window.devicePixelRatio > MAX_MAP_PIXEL_RATIO) {
+    Object.defineProperty(window, 'devicePixelRatio', { value: MAX_MAP_PIXEL_RATIO, configurable: true });
+  }
   const mapboxRequest = loadMapboxLibrary();
   mapboxRequest.catch(() => {});
   const params = new URLSearchParams(window.location.search);
