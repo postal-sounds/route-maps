@@ -8,12 +8,12 @@
 <link rel="preconnect" href="https://jwwwekafkpjdtngtjzfe.supabase.co" crossorigin>
 <link rel="preconnect" href="https://res.cloudinary.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css" rel="stylesheet">
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js"></script>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=arrow_back,close,directions,directions_car,directions_walk,fullscreen,fullscreen_exit,my_location,search&display=block">
+<link rel="preload" href="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css" as="style">
+<link rel="preload" href="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js" as="script">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=arrow_back,close,directions,directions_car,directions_walk,fullscreen,fullscreen_exit,my_location,search&display=block" media="print" onload="this.media='all'">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; background: #161817; }
   body { position: relative; }
   #map { width: 100%; height: 100%; background: #E2E2D8; }
 
@@ -95,7 +95,7 @@
   #status-msg {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
     font-family: "Atkinson Hyperlegible Mono", monospace;
-    text-align: center; color: #232320; padding: 24px;
+    text-align: center; color: #E2E2D8; padding: 24px;
     display: none;
   }
   #status-msg h2 { font-size: 18px; margin-bottom: 8px; }
@@ -610,6 +610,9 @@ const ROUTE_PROFILES = {
   walking: 'mapbox/walking',
   driving: 'mapbox/driving-traffic'
 };
+const MAPBOX_JS_URL = 'https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js';
+const MAPBOX_CSS_URL = 'https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css';
+const SLOW_CONNECTION_NOTICE_MS = 8000;
 const PANEL_BREAKPOINT = 768;
 const PANEL_SIDE_MIN_WIDTH = 560;
 const DETAIL_IMAGE_WIDTH = 800;
@@ -624,6 +627,9 @@ const SHEET_SWIPE_THRESHOLD_PX = 42;
 const UI_TEXT = {
   es: {
     loading: 'Cargando datos...',
+    slowConnection: 'La conexión va lenta, seguimos cargando el mapa...',
+    mapLoadError: 'No se pudo cargar el mapa',
+    mapLoadErrorDetail: 'Revisa tu conexión y recarga la página.',
     loadingError: 'Error cargando datos',
     loadingErrorDetail: 'No se pudo acceder a la hoja de cálculo.',
     noData: 'Sin datos',
@@ -643,6 +649,9 @@ const UI_TEXT = {
   },
   en: {
     loading: 'Loading data...',
+    slowConnection: 'Slow connection, the map is still loading...',
+    mapLoadError: 'The map could not be loaded',
+    mapLoadErrorDetail: 'Check your connection and reload the page.',
     loadingError: 'Error loading data',
     loadingErrorDetail: 'The spreadsheet could not be accessed.',
     noData: 'No data',
@@ -883,6 +892,24 @@ async function loadRouteRows(routeParam) {
 function parseCoord(val) {
   if (!val) return NaN;
   return parseFloat(val.replace(',', '.'));
+}
+
+/* Mapbox se carga sin bloquear el pintado: si tarda o falla, se ve el fondo y un aviso, no un hueco en blanco. */
+function loadExternal(tag, attributes) {
+  return new Promise((resolve, reject) => {
+    const element = document.createElement(tag);
+    Object.assign(element, attributes);
+    element.onload = resolve;
+    element.onerror = () => reject(new Error('No cargó ' + (attributes.src || attributes.href)));
+    document.head.appendChild(element);
+  });
+}
+
+function loadMapboxLibrary() {
+  return Promise.all([
+    loadExternal('link', { rel: 'stylesheet', href: MAPBOX_CSS_URL }),
+    loadExternal('script', { src: MAPBOX_JS_URL })
+  ]);
 }
 
 function showStatus(title, detail) {
@@ -2653,6 +2680,9 @@ async function init() {
   resetPanelContent();
 
   showStatus(text('loading', lang));
+  const slowNotice = setTimeout(() => { showStatus(text('slowConnection', lang)); }, SLOW_CONNECTION_NOTICE_MS);
+  const mapboxRequest = loadMapboxLibrary();
+  mapboxRequest.catch(() => {});
   const params = new URLSearchParams(window.location.search);
   const routeParam = params.get('route');
   let rows;
@@ -2721,14 +2751,23 @@ async function init() {
   updateStartRouteButtonVisibility();
   updateRouteProgressBadge();
 
-  mapboxgl.accessToken = MAPBOX_TOKEN;
-  map = new mapboxgl.Map({
-    container: 'map',
-    style: MAPBOX_STYLE,
-    center: [spots[0].lng, spots[0].lat],
-    zoom: 14,
-    attributionControl: false
-  });
+  try {
+    await mapboxRequest;
+    mapboxgl.accessToken = MAPBOX_TOKEN;
+    map = new mapboxgl.Map({
+      container: 'map',
+      style: MAPBOX_STYLE,
+      center: [spots[0].lng, spots[0].lat],
+      zoom: 14,
+      attributionControl: false
+    });
+  } catch (err) {
+    clearTimeout(slowNotice);
+    console.warn('Postal Sounds: no se pudo iniciar Mapbox', err);
+    showStatus(text('mapLoadError', lang), text('mapLoadErrorDetail', lang));
+    return;
+  }
+  clearTimeout(slowNotice);
   map.addControl(new mapboxgl.AttributionControl({ compact: true }));
 
   map.on('load', function () {
