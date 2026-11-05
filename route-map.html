@@ -470,7 +470,7 @@
     .postal-route-mode__button-label { font-size: 8.5px; }
     .postal-route-mode__button-time { font-size: 11px; }
   }
-  #postal-splash { position: absolute; inset: 0; z-index: 10; background: #161817; transition: opacity 0.35s ease; }
+  #postal-splash { position: absolute; inset: 0; z-index: 10; background: #161817; transition: opacity 0.6s ease; }
   #postal-splash.is-hiding { opacity: 0; pointer-events: none; }
   #postal-splash svg {
     position: absolute; left: 50%; top: 50%;
@@ -626,9 +626,9 @@ const ROUTE_PROFILES = {
 const MAPBOX_JS_URL = 'https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js';
 const MAPBOX_CSS_URL = 'https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css';
 const SLOW_CONNECTION_NOTICE_MS = 8000;
-const SPLASH_MIN_VISIBLE_MS = 500;
+const SPLASH_MIN_VISIBLE_MS = 2500;
 const SPLASH_MAX_VISIBLE_MS = 20000;
-const SPLASH_FADE_MS = 350;
+const SPLASH_FADE_MS = 600;
 const PANEL_BREAKPOINT = 768;
 const PANEL_SIDE_MIN_WIDTH = 560;
 const DETAIL_IMAGE_WIDTH = 800;
