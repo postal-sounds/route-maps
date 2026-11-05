@@ -17,7 +17,8 @@ MIN_ROWS_RATIO = 0.5
 
 SPOT_COLUMNS = (
     "id,city,name,name_en,description,description_en,category,access_type,"
-    "latitude,longitude,image_url,embed_html,genre_primary,decade,vibe,extra,extra_en,url_extra"
+    "latitude,longitude,image_url,embed_html,genre_primary,decade,vibe,extra,extra_en,url_extra,"
+    "spot_events(description,description_en,url,position)"
 )
 ROUTE_COLUMNS = "id,name,description,description_en"
 STOP_COLUMNS = (
