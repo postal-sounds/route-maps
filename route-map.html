@@ -2770,7 +2770,11 @@ async function init() {
       showUserHeading: true
     });
     map.addControl(geolocate, 'bottom-right');
-    geolocate.on('geolocate', (position) => {
+    geolocate.on('geolocate', (event) => {
+      /* Mapbox no copia coords al evento (son getters del prototipo); la posición queda en el control. */
+      const position = event.coords ? event : geolocate._lastKnownPosition;
+      /* Durante la navegación, handleLocationUpdate gestiona lastPosition y el rumbo. */
+      if (!position || navigationState.active) return;
       const coords = [position.coords.longitude, position.coords.latitude];
       if (!isValidCoordinates(coords)) return;
       navigationState.lastPosition = coords;
