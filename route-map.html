@@ -4,11 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Route Map</title>
+<link rel="preconnect" href="https://api.mapbox.com">
+<link rel="preconnect" href="https://jwwwekafkpjdtngtjzfe.supabase.co" crossorigin>
+<link rel="preconnect" href="https://res.cloudinary.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Jost:wght@600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=arrow_back,close,directions,directions_car,directions_walk,fullscreen,fullscreen_exit,my_location,search">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=arrow_back,close,directions,directions_car,directions_walk,fullscreen,fullscreen_exit,my_location,search&display=block">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
@@ -206,6 +208,11 @@
   }
 
   /* --- Navegación: botón Go dentro de la tarjeta de detalle --- */
+  .postal-nav-card__actions {
+    position: sticky; bottom: 0; z-index: 2;
+    padding-top: 8px; background: #E2E2D8;
+  }
+  .postal-nav-card__actions:not(:has(> :not([hidden]))) { display: none; }
   .postal-nav-card__go {
     display: block; width: 100%; margin: 0 0 12px;
     background: #BFEF2B; color: #232320; border: none; border-radius: 8px;
@@ -347,7 +354,7 @@
   }
   .postal-nav-toast[hidden] { display: none; }
 
-  @media (max-width: 767px) {
+  @media (max-width: 559px), (max-width: 767px) and (orientation: portrait) {
     #locate-btn {
       width: 38px;
       height: 38px;
@@ -550,7 +557,9 @@
       </p>
     </div>
 
-    <button type="button" id="postal-nav-go-button" class="postal-nav-card__go"></button>
+    <div class="postal-nav-card__actions">
+      <button type="button" id="postal-nav-go-button" class="postal-nav-card__go"></button>
+    </div>
 
     <p id="postal-nav-instruction" class="postal-nav-card__instruction"></p>
   </div>
@@ -602,6 +611,9 @@ const ROUTE_PROFILES = {
   driving: 'mapbox/driving-traffic'
 };
 const PANEL_BREAKPOINT = 768;
+const PANEL_SIDE_MIN_WIDTH = 560;
+const DETAIL_IMAGE_WIDTH = 800;
+const THUMBNAIL_IMAGE_WIDTH = 96;
 const PANEL_PADDING_GAP = 18;
 const MOBILE_SHEET_COMPACT_RATIO = 0.34;
 const MOBILE_SHEET_EXPANDED_RATIO = 0.92;
@@ -1103,7 +1115,8 @@ const searchEls = {
 };
 
 function isMobileLayout() {
-  return window.innerWidth < PANEL_BREAKPOINT;
+  const width = window.innerWidth;
+  return width < PANEL_SIDE_MIN_WIDTH || (width < PANEL_BREAKPOINT && window.innerHeight >= width);
 }
 
 function isAndroidTouchDevice() {
@@ -1684,16 +1697,25 @@ function formatDuration(seconds) {
   return hours + ' h' + (minutes ? ' ' + minutes + ' min' : '');
 }
 
+/* Pide a Cloudinary la foto al tamaño en que se muestra: los originales pesan hasta varios MB. */
+function sizedImageUrl(url, width) {
+  return url.replace(/(res\.cloudinary\.com\/[^/]+\/image\/upload\/)/, '$1f_auto,q_auto,c_limit,w_' + width + '/');
+}
+
 /* El contenido fijo del spot se pinta una sola vez al abrir la tarjeta. */
 function renderDestinationCard(spot) {
   const imagePath = safeResourceUrl(spot.url);
   navEls.media.hidden = !imagePath;
   if (imagePath) {
     navEls.image.onload = () => { scheduleMapAccommodation(); };
-    navEls.image.src = imagePath;
+    /* Sin esto, con red lenta se vería la foto de la parada anterior mientras carga la nueva. */
+    navEls.image.removeAttribute('src');
+    navEls.image.onerror = () => { navEls.image.onerror = null; navEls.image.src = imagePath; };
+    navEls.image.src = sizedImageUrl(imagePath, DETAIL_IMAGE_WIDTH);
     navEls.image.alt = spot.name || '';
   } else {
     navEls.image.onload = null;
+    navEls.image.onerror = null;
     navEls.image.removeAttribute('src');
     navEls.image.alt = '';
   }
@@ -1761,7 +1783,7 @@ function createSearchResultElement(spot, lang) {
   if (imageUrl) {
     const img = document.createElement('img');
     img.className = 'postal-search-result-thumb';
-    img.src = imageUrl;
+    img.src = sizedImageUrl(imageUrl, THUMBNAIL_IMAGE_WIDTH);
     img.alt = '';
     img.loading = 'lazy';
     img.addEventListener('error', () => { img.remove(); }, { once: true });
