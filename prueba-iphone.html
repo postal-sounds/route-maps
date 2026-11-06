@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<meta name="robots" content="noindex">
+<title>Postal Sounds: prueba de pantalla</title>
+<style>
+  /* Copia de cómo Framer arma /mapa en el móvil: cabecera fija arriba, fondo beige y el mapa debajo. */
+  html, body { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { overscroll-behavior: none; overflow: hidden; }
+  body { background: #e2e2d8; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  #root { display: flex; flex-direction: column; background: #e2e2d8; }
+  #root.dark-root { background: #161817; }
+  header {
+    position: sticky; top: 0; z-index: 2; flex: none; height: 80px;
+    display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
+    background: #232320; color: #BFEF2B; font-size: 18px; font-weight: 700;
+  }
+  #card { flex: 1 1 0; min-height: 0; position: relative; }
+  #map-frame { display: block; width: 100%; border: 0; }
+
+  /* Variante actual: la altura sale de 100dvh menos la cabecera. */
+  .v-actual #map-frame { height: calc(100vh - 80px); height: calc(100dvh - 80px); }
+
+  /* Variante fija: la página ocupa la pantalla con position fixed y el mapa llena el hueco. */
+  .v-fija #root, .v-fija-oscura #root { position: fixed; inset: 0; }
+  .v-fija #map-frame, .v-fija-oscura #map-frame { position: absolute; inset: 0; height: 100%; }
+  .v-fija-oscura, .v-fija-oscura body { background: #232320; }
+
+  /* Variante pequeña: 100svh, la altura con las barras de Safari visibles. */
+  .v-svh #map-frame { height: calc(100vh - 80px); height: calc(100svh - 80px); }
+
+  /* Variante bajo la barra: el mapa llega al borde y los botones suben lo que tapa la barra. */
+  .v-bajo-barra #map-frame { height: calc(100vh - 80px); height: calc(100lvh - 80px); }
+
+  #panel {
+    position: fixed; z-index: 5; left: 8px; right: 8px; top: 88px;
+    background: rgba(226, 226, 216, 0.94); color: #232320; border-radius: 10px;
+    padding: 8px 10px; font-size: 11px; line-height: 1.35;
+  }
+  #panel.min #values, #panel.min #variants { display: none; }
+  #panel b { color: #232320; }
+  #variants { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+  #variants a, #panel button {
+    font: inherit; font-weight: 700; padding: 5px 7px; border-radius: 6px; border: 0;
+    background: #232320; color: #E2E2D8; text-decoration: none;
+  }
+  #variants a.on { background: #BFEF2B; color: #232320; }
+  #values { white-space: pre-wrap; margin: 0; }
+  .probe { position: absolute; left: -10px; top: 0; width: 1px; visibility: hidden; }
+</style>
+</head>
+<body>
+<div class="probe" id="p-vh" style="height:100vh"></div>
+<div class="probe" id="p-dvh" style="height:100dvh"></div>
+<div class="probe" id="p-svh" style="height:100svh"></div>
+<div class="probe" id="p-lvh" style="height:100lvh"></div>
+<div class="probe" id="p-safe" style="height:env(safe-area-inset-bottom, 0px)"></div>
+
+<div id="root" class="dark-root">
+  <header><span>POSTAL SOUNDS</span><span>&#9776;</span></header>
+  <div id="card"><iframe id="map-frame" title="Mapa de prueba"></iframe></div>
+</div>
+
+<div id="panel">
+  <div><b>Variante: <span id="current"></span></b> · <button id="toggle" type="button">Ocultar</button> <button id="copy" type="button">Copiar</button></div>
+  <div id="variants"></div>
+  <pre id="values"></pre>
+</div>
+
+<script>
+const VARIANTS = {
+  actual: 'Como está hoy',
+  fija: 'Fija a la pantalla',
+  'fija-oscura': 'Fija con fondo gris',
+  svh: 'Alto pequeño (svh)',
+  'bajo-barra': 'Mapa bajo la barra'
+};
+const BUTTON_MARGIN = 16;
+const variant = VARIANTS[new URLSearchParams(location.search).get('v')] ? new URLSearchParams(location.search).get('v') : 'actual';
+document.documentElement.className = 'v-' + variant;
+document.getElementById('current').textContent = VARIANTS[variant];
+
+const links = document.getElementById('variants');
+Object.entries(VARIANTS).forEach(([key, label]) => {
+  const link = document.createElement('a');
+  link.href = '?v=' + key;
+  link.textContent = label;
+  if (key === variant) link.className = 'on';
+  links.appendChild(link);
+});
+
+/* Un mapa falso: fondo oscuro, buscador arriba y los dos botones verdes abajo a la derecha, como el embed real. */
+const frame = document.getElementById('map-frame');
+frame.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  html, body { margin: 0; height: 100%; background: #161817; overflow: hidden; }
+  body { background-image: linear-gradient(#262826 1px, transparent 1px), linear-gradient(90deg, #262826 1px, transparent 1px); background-size: 40px 40px; }
+  .search { position: absolute; top: 10px; left: 10px; right: 10px; height: 38px; border-radius: 10px; background: #232320; color: #9A9A90; font: 14px monospace; display: flex; align-items: center; padding-left: 14px; }
+  .btn { position: absolute; right: 16px; width: 38px; height: 38px; border-radius: 9px; background: #BFEF2B; }
+  .edge { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: #FF5A4E; }
+</style></head><body>
+  <div class="search">Buscar un lugar...</div>
+  <div class="btn" id="b1"></div><div class="btn" id="b2"></div>
+  <div class="edge"></div>
+</body></html>`;
+
+const px = (id) => Math.round(document.getElementById(id).getBoundingClientRect().height);
+const lines = [];
+
+function placeButtons() {
+  const doc = frame.contentDocument;
+  if (!doc || !doc.getElementById('b1')) return null;
+  /* En la variante bajo la barra, los botones suben lo que el mapa pasa del alto visible. */
+  const extra = variant === 'bajo-barra' ? Math.max(0, px('p-lvh') - px('p-dvh')) : 0;
+  doc.getElementById('b2').style.bottom = (BUTTON_MARGIN + extra) + 'px';
+  doc.getElementById('b1').style.bottom = (BUTTON_MARGIN + extra + 46) + 'px';
+  return doc.getElementById('b2').getBoundingClientRect();
+}
+
+function measure() {
+  const button = placeButtons();
+  const map = frame.getBoundingClientRect();
+  const header = document.querySelector('header').getBoundingClientRect();
+  const vv = window.visualViewport;
+  lines.length = 0;
+  lines.push(
+    'Pantalla: ' + screen.width + 'x' + screen.height + ' @' + devicePixelRatio,
+    'innerHeight: ' + innerHeight + ' · visualViewport: ' + (vv ? Math.round(vv.height) + ' (top ' + Math.round(vv.offsetTop) + ')' : 'no'),
+    'clientHeight: ' + document.documentElement.clientHeight + ' · scrollY: ' + Math.round(scrollY),
+    '100vh: ' + px('p-vh') + ' · 100dvh: ' + px('p-dvh') + ' · 100svh: ' + px('p-svh') + ' · 100lvh: ' + px('p-lvh'),
+    'safe-area abajo: ' + px('p-safe'),
+    'Cabecera: ' + Math.round(header.top) + ' a ' + Math.round(header.bottom),
+    'Mapa: ' + Math.round(map.top) + ' a ' + Math.round(map.bottom) + ' (alto ' + Math.round(map.height) + ')',
+    'Botón de abajo termina en: ' + (button ? Math.round(map.top + button.bottom) : '?'),
+    navigator.userAgent
+  );
+  document.getElementById('values').textContent = lines.join('\n');
+}
+
+frame.addEventListener('load', measure);
+window.addEventListener('resize', measure);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', measure);
+setInterval(measure, 1000);
+
+document.getElementById('toggle').addEventListener('click', (event) => {
+  const panel = document.getElementById('panel');
+  panel.classList.toggle('min');
+  event.target.textContent = panel.classList.contains('min') ? 'Ver' : 'Ocultar';
+});
+document.getElementById('copy').addEventListener('click', async (event) => {
+  try {
+    await navigator.clipboard.writeText('Variante: ' + VARIANTS[variant] + '\n' + lines.join('\n'));
+    event.target.textContent = 'Copiado';
+  } catch (error) {
+    event.target.textContent = 'Envía captura';
+  }
+});
+</script>
+</body>
+</html>
