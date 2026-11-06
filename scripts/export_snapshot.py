@@ -18,7 +18,7 @@ MIN_ROWS_RATIO = 0.5
 SPOT_COLUMNS = (
     "id,city,name,name_en,description,description_en,category,access_type,"
     "latitude,longitude,image_url,embed_html,genre_primary,decade,vibe,extra,extra_en,url_extra,"
-    "spot_events(description,description_en,url,position)"
+    "row_id,events,events_en,events_url"
 )
 ROUTE_COLUMNS = "id,name,description,description_en"
 STOP_COLUMNS = (
@@ -60,7 +60,7 @@ def write_json(path, data):
 
 
 def main():
-    spots = fetch_table("spots", SPOT_COLUMNS, "id")
+    spots = fetch_table("spots", SPOT_COLUMNS, "id,row_id")
     routes = fetch_table("routes", ROUTE_COLUMNS, "id")
     stops = fetch_table("route_stops", STOP_COLUMNS, "route_id,position")
     route_data = {"routes": routes, "stops": stops}
