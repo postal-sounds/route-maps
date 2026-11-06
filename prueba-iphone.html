@@ -29,6 +29,10 @@
   .v-fija-oscura #map-frame { position: absolute; inset: 0; height: 100%; }
   .v-fija-oscura, .v-fija-oscura body { background: #232320; }
 
+  /* Propuesta: fondo gris y el mapa con el alto pequeño (svh), que no crece si Safari alarga la pantalla bajo su barra. */
+  .v-propuesta, .v-propuesta body { background: #232320; }
+  .v-propuesta #map-frame { height: calc(100vh - 80px); height: calc(100svh - 80px); }
+
   /* Gris sin fijar: solo cambia el color de html y body. */
   .v-gris, .v-gris body { background: #232320; }
 
@@ -78,6 +82,7 @@
 
 <script>
 const VARIANTS = {
+  propuesta: 'PROPUESTA: gris con svh',
   actual: 'Como está hoy',
   gris: 'Gris sin fijar',
   'solo-html': 'Gris solo en html',
@@ -86,7 +91,7 @@ const VARIANTS = {
   'fija-oscura': 'Fija (falla el tacto)'
 };
 const BUTTON_MARGIN = 16;
-const variant = VARIANTS[new URLSearchParams(location.search).get('v')] ? new URLSearchParams(location.search).get('v') : 'actual';
+const variant = VARIANTS[new URLSearchParams(location.search).get('v')] ? new URLSearchParams(location.search).get('v') : 'propuesta';
 document.documentElement.className = 'v-' + variant;
 if (variant === 'tema') {
   const theme = document.createElement('meta');
