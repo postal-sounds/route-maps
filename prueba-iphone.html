@@ -17,8 +17,10 @@
     display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
     background: #232320; color: #BFEF2B; font-size: 18px; font-weight: 700;
   }
-  #card { position: relative; }
-  .v-fija-oscura #card { flex: 1 1 0; min-height: 0; }
+  /* Como en Framer: la página mide al menos 100vh y el mapa se centra en el espacio que queda bajo la cabecera. */
+  #root { min-height: 100vh; }
+  #card { position: relative; flex: 1 0 auto; display: flex; flex-direction: column; justify-content: center; }
+  .v-fija-oscura #card { flex: 1 1 0; min-height: 0; display: block; }
   #map-frame { display: block; width: 100%; border: 0; }
 
   /* Todas las variantes salvo la fija usan la altura de hoy: 100dvh menos la cabecera. */
@@ -30,7 +32,8 @@
   .v-fija-oscura, .v-fija-oscura body { background: #232320; }
 
   /* Propuesta: fondo gris y el mapa con el alto pequeño (svh), que no crece si Safari alarga la pantalla bajo su barra. */
-  .v-propuesta, .v-propuesta body { background: #232320; }
+  .v-propuesta, .v-propuesta body, .v-propuesta #root { background: #232320; }
+  .v-propuesta #root { min-height: 0; height: 100vh; height: 100svh; }
   .v-propuesta #map-frame { height: calc(100vh - 80px); height: calc(100svh - 80px); }
 
   /* Gris sin fijar: solo cambia el color de html y body. */
