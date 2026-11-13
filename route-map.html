@@ -781,6 +781,10 @@ function detectLanguage() {
     /* Referrer ausente o inválido: continuar con el idioma del navegador. */
   }
 
+  /* Dentro de la web, las páginas en inglés siempre pasan ?lang=en y el navegador solo envía el dominio
+     como referrer: sin lang, la página es la española, aunque el navegador esté en otro idioma. */
+  if (window.parent !== window) return DEFAULT_LANGUAGE;
+
   const candidates = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language];
   for (const raw of candidates) {
     const language = normalizeLanguage(raw);
